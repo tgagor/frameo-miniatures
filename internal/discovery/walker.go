@@ -32,7 +32,9 @@ func WalkFiles(root string, files chan<- File, matcher *IgnoreMatcher) {
 		}
 
 		// Check ignore rules
-		if matcher.Matches(relPath, d.IsDir()) {
+		// Check both relative path (standard) and full path (user intuition)
+		if matcher.Matches(relPath, d.IsDir()) || matcher.Matches(path, d.IsDir()) {
+			log.Info().Str("path", path).Msg("Skipping ignored file")
 			if d.IsDir() {
 				return filepath.SkipDir
 			}

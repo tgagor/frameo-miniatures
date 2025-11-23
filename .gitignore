@@ -8,6 +8,7 @@
 /*.so
 /*.dylib
 /*.test
+frameo-miniatures
 
 # IDE and editor artifacts
 .idea/              # JetBrains IDEs (GoLand, etc.)
