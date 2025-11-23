@@ -123,3 +123,62 @@ func TestProcessor_ProcessFile_NoEXIF(t *testing.T) {
 	timeDiff := destInfo.ModTime().Sub(srcModTime)
 	assert.Less(t, timeDiff.Abs().Seconds(), 2.0, "File modification time should match source when no EXIF")
 }
+
+func TestProcessor_ProcessFile_JPEG_PreservesEXIF(t *testing.T) {
+	// Use the real example file if it exists
+	exampleFile := "../../example/IMG_20220811_094859.jpg"
+	if _, err := os.Stat(exampleFile); os.IsNotExist(err) {
+		t.Skip("Example file not found, skipping JPEG EXIF test")
+	}
+
+	// Setup temp dir
+	tmpDir, err := os.MkdirTemp("", "frameo-jpeg-exif-test")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	srcDir := filepath.Join(tmpDir, "src")
+	destDir := filepath.Join(tmpDir, "dest")
+	err = os.MkdirAll(srcDir, 0755)
+	require.NoError(t, err)
+
+	// Copy example file to src
+	srcPath := filepath.Join(srcDir, "test_with_exif.jpg")
+	input, err := os.ReadFile(exampleFile)
+	require.NoError(t, err)
+	err = os.WriteFile(srcPath, input, 0644)
+	require.NoError(t, err)
+
+	// Initialize Processor with JPEG format
+	proc := NewProcessor(800, 600, 80, "jpg")
+
+	// Process
+	err = proc.ProcessFile(srcPath, destDir)
+	require.NoError(t, err)
+
+	// Check output exists
+	destPath := filepath.Join(destDir, "test_with_exif.jpg")
+	assert.FileExists(t, destPath)
+
+	// Verify EXIF data is preserved in JPEG
+	destFile, err := os.Open(destPath)
+	require.NoError(t, err)
+	defer destFile.Close()
+
+	// Read JPEG and check for EXIF
+	rawExif, err := exif.SearchAndExtractExifWithReader(destFile)
+	require.NoError(t, err, "EXIF data should be present in output JPEG")
+
+	// Parse EXIF and check DateTimeOriginal
+	entries, _, err := exif.GetFlatExifData(rawExif, nil)
+	require.NoError(t, err)
+
+	foundDate := false
+	for _, tag := range entries {
+		if tag.TagName == "DateTimeOriginal" {
+			assert.Equal(t, "2022:08:11 09:49:00", tag.FormattedFirst)
+			foundDate = true
+			break
+		}
+	}
+	assert.True(t, foundDate, "DateTimeOriginal should be preserved in JPEG")
+}

@@ -1,10 +1,10 @@
 package processor
 
 import (
+	"bytes"
 	"fmt"
 	"image"
 	"image/jpeg"
-	_ "image/png"
 	"io"
 	"os"
 	"path/filepath"
@@ -15,6 +15,8 @@ import (
 	"github.com/chai2010/webp"
 	"github.com/disintegration/imaging"
 	"github.com/dsoprea/go-exif/v3"
+	exifcommon "github.com/dsoprea/go-exif/v3/common"
+	jpegstructure "github.com/dsoprea/go-jpeg-image-structure/v2"
 	"github.com/rs/zerolog/log"
 )
 
@@ -102,39 +104,52 @@ func (p *Processor) ProcessFile(srcPath, destDir string) error {
 		return fmt.Errorf("failed to create dest dir: %w", err)
 	}
 
-	// 6. Encode
-	out, err := os.Create(destPath)
-	if err != nil {
-		return fmt.Errorf("failed to create output file: %w", err)
-	}
+	// 6. Encode to memory buffer first
+	var buf bytes.Buffer
 
 	// Encode based on format
 	if p.Format == "jpg" || p.Format == "jpeg" {
-		err = jpeg.Encode(out, img, &jpeg.Options{Quality: p.Quality})
-		out.Close()
+		err = jpeg.Encode(&buf, img, &jpeg.Options{Quality: p.Quality})
 		if err != nil {
 			return fmt.Errorf("failed to encode jpeg: %w", err)
 		}
 	} else {
 		// Default to WebP
-		err = webp.Encode(out, img, &webp.Options{Quality: float32(p.Quality)})
-		out.Close()
+		err = webp.Encode(&buf, img, &webp.Options{Quality: float32(p.Quality)})
 		if err != nil {
 			return fmt.Errorf("failed to encode webp: %w", err)
 		}
 	}
 
-	// 7. Preserve Metadata (EXIF and Time)
-	// Copy EXIF data from source to destination (only for WebP, JPEG preserves it differently)
-	if p.Format == "webp" {
-		if err := p.copyExif(srcPath, destPath); err != nil {
-			log.Warn().Err(err).Str("src", srcPath).Str("dest", destPath).Msg("Failed to copy EXIF data")
+	// 7. Add EXIF metadata to encoded data (before writing to disk)
+	encodedData := buf.Bytes()
+
+	// Reset file pointer for EXIF extraction
+	f.Seek(0, 0)
+	rawExif, err = exif.SearchAndExtractExifWithReader(f)
+	if err == nil {
+		// We have EXIF data, embed it
+		if p.Format == "webp" {
+			// For WebP, use SetMetadata
+			encodedData, err = webp.SetMetadata(encodedData, rawExif, "EXIF")
+			if err != nil {
+				log.Warn().Err(err).Str("src", srcPath).Msg("Failed to embed EXIF in WebP")
+			}
+		} else if p.Format == "jpg" || p.Format == "jpeg" {
+			// For JPEG, use go-jpeg-image-structure
+			encodedData, err = p.embedExifInJPEG(encodedData, rawExif)
+			if err != nil {
+				log.Warn().Err(err).Str("src", srcPath).Msg("Failed to embed EXIF in JPEG")
+			}
 		}
 	}
-	// Note: For JPEG, we'd need a different approach to preserve EXIF
-	// The standard library's jpeg.Encode doesn't preserve EXIF, so we'd need additional work
 
-	// Also set file modification time
+	// 8. Write final data to disk (single write operation)
+	if err := os.WriteFile(destPath, encodedData, 0644); err != nil {
+		return fmt.Errorf("failed to write output file: %w", err)
+	}
+
+	// 9. Set file modification time
 	if !captureTime.IsZero() {
 		if err := os.Chtimes(destPath, time.Now(), captureTime); err != nil {
 			log.Warn().Err(err).Str("path", destPath).Msg("Failed to set file time")
@@ -226,38 +241,45 @@ func (p *Processor) normalizeFilename(name string) string {
 	return nameWithoutExt + ".webp"
 }
 
-// copyExif copies EXIF data from source to destination using webp.SetMetadata
-func (p *Processor) copyExif(srcPath, destPath string) error {
-	// Read source EXIF data
-	srcFile, err := os.Open(srcPath)
+// embedExifInJPEG embeds EXIF data into JPEG bytes
+func (p *Processor) embedExifInJPEG(jpegData, exifData []byte) ([]byte, error) {
+	// Parse the JPEG structure
+	jmp := jpegstructure.NewJpegMediaParser()
+	intfc, err := jmp.ParseBytes(jpegData)
 	if err != nil {
-		return fmt.Errorf("failed to open source: %w", err)
+		return nil, fmt.Errorf("failed to parse JPEG: %w", err)
 	}
-	defer srcFile.Close()
 
-	// Extract EXIF data from source
-	rawExif, err := exif.SearchAndExtractExifWithReader(srcFile)
+	sl := intfc.(*jpegstructure.SegmentList)
+
+	// Construct EXIF builder from raw EXIF data
+	im, err := exifcommon.NewIfdMappingWithStandard()
 	if err != nil {
-		// No EXIF data in source, skip
-		return nil
+		return nil, fmt.Errorf("failed to create IFD mapping: %w", err)
 	}
 
-	// Read the WebP file
-	webpData, err := os.ReadFile(destPath)
+	ti := exif.NewTagIndex()
+
+	_, index, err := exif.Collect(im, ti, exifData)
 	if err != nil {
-		return fmt.Errorf("failed to read webp: %w", err)
+		return nil, fmt.Errorf("failed to parse EXIF data: %w", err)
 	}
 
-	// Set EXIF metadata in WebP
-	newData, err := webp.SetMetadata(webpData, rawExif, "EXIF")
+	// Create IfdBuilder from the root IFD
+	ib := exif.NewIfdBuilderFromExistingChain(index.RootIfd)
+
+	// Set the EXIF data
+	err = sl.SetExif(ib)
 	if err != nil {
-		return fmt.Errorf("failed to set metadata: %w", err)
+		return nil, fmt.Errorf("failed to set EXIF: %w", err)
 	}
 
-	// Write back the WebP with EXIF
-	if err := os.WriteFile(destPath, newData, 0644); err != nil {
-		return fmt.Errorf("failed to write webp: %w", err)
+	// Write the updated JPEG to a buffer
+	var buf bytes.Buffer
+	err = sl.Write(&buf)
+	if err != nil {
+		return nil, fmt.Errorf("failed to write JPEG: %w", err)
 	}
 
-	return nil
+	return buf.Bytes(), nil
 }

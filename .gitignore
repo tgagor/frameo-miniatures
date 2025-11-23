@@ -9,6 +9,7 @@
 /*.dylib
 /*.test
 frameo-miniatures
+test-*
 
 # IDE and editor artifacts
 .idea/              # JetBrains IDEs (GoLand, etc.)
