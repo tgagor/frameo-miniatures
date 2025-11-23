@@ -190,7 +190,7 @@ func (p *Processor) normalizeFilename(name string) string {
 	nameWithoutExt := strings.TrimSuffix(name, ext)
 
 	// Replace invalid chars
-	invalid := []string{"\\", "/", ":", "*", "?", "\"", "<", ">", "|"}
+	invalid := []string{"\\", "/", ":", ";", "*", "?", "\"", "<", ">", "|"}
 	for _, char := range invalid {
 		nameWithoutExt = strings.ReplaceAll(nameWithoutExt, char, "_")
 	}

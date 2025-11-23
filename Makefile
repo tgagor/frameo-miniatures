@@ -4,14 +4,15 @@ GOBIN ?= $(shell go env GOPATH)/bin
 run:
 	go run \
 		-ldflags="-X main.BuildVersion=$(VERSION)" \
-		./cmd/root
+		./cmd
 
 bin/frameo-miniatures: build
 
 build:
 	go build \
 		-ldflags="-X main.BuildVersion=$(VERSION)" \
-		-o bin/frameo-miniatures ./cmd/root
+		-o bin/frameo-miniatures
+	chmod +x bin/frameo-miniatures
 
 test: bin/frameo-miniatures
 	go test -v ./...
