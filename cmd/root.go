@@ -20,6 +20,7 @@ var (
 	workers    int
 	prune      bool
 	dryRun     bool
+	ignoreFile string
 )
 
 var rootCmd = &cobra.Command{
@@ -53,6 +54,7 @@ WebP conversion, and metadata copying.`,
 			Workers:    workers,
 			Prune:      prune,
 			DryRun:     dryRun,
+			IgnoreFile: ignoreFile,
 		}
 
 		if err := app.Run(cfg); err != nil {
@@ -79,4 +81,5 @@ func init() {
 	rootCmd.Flags().IntVarP(&workers, "workers", "j", 0, "Number of concurrent workers (0 = auto)")
 	rootCmd.Flags().BoolVar(&prune, "prune", false, "Delete files in output that are not in input")
 	rootCmd.Flags().BoolVar(&dryRun, "dry-run", false, "Simulate without writing files")
+	rootCmd.Flags().StringVar(&ignoreFile, "ignore-file", "", "Path to .frameoignore file")
 }

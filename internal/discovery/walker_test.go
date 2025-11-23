@@ -26,7 +26,7 @@ func TestIgnoreMatcher(t *testing.T) {
 	require.NoError(t, err)
 
 	// Initialize matcher
-	matcher, err := NewIgnoreMatcher(tmpDir)
+	matcher, err := NewIgnoreMatcher("", tmpDir)
 	require.NoError(t, err)
 
 	tests := []struct {
@@ -98,7 +98,7 @@ func TestWalkFiles_UserScenario(t *testing.T) {
 	require.NoError(t, err)
 
 	// Matcher
-	matcher, err := NewIgnoreMatcher(inputDir)
+	matcher, err := NewIgnoreMatcher("", inputDir)
 	require.NoError(t, err)
 
 	// Walk

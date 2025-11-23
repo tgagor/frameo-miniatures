@@ -25,6 +25,7 @@ type Config struct {
 	Workers    int
 	Prune      bool
 	DryRun     bool
+	IgnoreFile string
 }
 
 func Run(cfg Config) error {
@@ -43,7 +44,7 @@ func Run(cfg Config) error {
 	proc := processor.NewProcessor(width, height, cfg.Quality)
 
 	// Setup ignore matcher
-	matcher, err := discovery.NewIgnoreMatcher(".")
+	matcher, err := discovery.NewIgnoreMatcher(cfg.IgnoreFile, cfg.InputDir)
 	if err != nil {
 		log.Warn().Err(err).Msg("Failed to load .frameoignore")
 		matcher = &discovery.IgnoreMatcher{} // Empty matcher
