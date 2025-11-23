@@ -19,6 +19,8 @@ func TestIgnoreMatcher(t *testing.T) {
 	ignoreContent := `
 */ignored_subdir/*
 *.bad
+*/2005.07/Ognisko u Gogusia/*
+2002.03/Studniówka z Beatą/*
 `
 	err = os.WriteFile(filepath.Join(tmpDir, ".frameoignore"), []byte(ignoreContent), 0644)
 	require.NoError(t, err)
@@ -47,6 +49,12 @@ func TestIgnoreMatcher(t *testing.T) {
 		// But we added a check for FULL path too.
 		// Full path: original/2005.07/...
 		// This SHOULD match */2005.07/...
+		// This SHOULD match */2005.07/... IF we provide a parent directory (simulating full path check)
+		{"original/2005.07/Ognisko u Gogusia/", true, true},
+		{"original/2005.07/Ognisko u Gogusia/Ognisko u Gogusia 08.JPG", false, true},
+		// 2002.03 pattern does not have leading */, so it matches relative path directly
+		{"2002.03/Studniówka z Beatą/", true, true},
+		{"2002.03/Studniówka z Beatą/Zdięcia studniówka 2002/ZDJ4.JPG", false, true},
 	}
 
 	for _, tt := range tests {

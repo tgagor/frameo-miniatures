@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/rs/zerolog/log"
 	gitignore "github.com/sabhiram/go-gitignore"
 )
 
@@ -15,6 +16,7 @@ type IgnoreMatcher struct {
 // NewIgnoreMatcher creates a new matcher from a .frameoignore file
 func NewIgnoreMatcher(root string) (*IgnoreMatcher, error) {
 	ignorePath := filepath.Join(root, ".frameoignore")
+	log.Info().Str("path", ignorePath).Msg("Loading .frameoignore")
 	if _, err := os.Stat(ignorePath); os.IsNotExist(err) {
 		return &IgnoreMatcher{ignorer: nil}, nil
 	}

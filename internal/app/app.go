@@ -43,7 +43,7 @@ func Run(cfg Config) error {
 	proc := processor.NewProcessor(width, height, cfg.Quality)
 
 	// Setup ignore matcher
-	matcher, err := discovery.NewIgnoreMatcher(cfg.InputDir)
+	matcher, err := discovery.NewIgnoreMatcher(".")
 	if err != nil {
 		log.Warn().Err(err).Msg("Failed to load .frameoignore")
 		matcher = &discovery.IgnoreMatcher{} // Empty matcher
@@ -81,7 +81,7 @@ func Run(cfg Config) error {
 
 				if cfg.DryRun {
 					// Simulate
-					time.Sleep(10 * time.Millisecond)
+					// time.Sleep(10 * time.Millisecond)
 				} else {
 					if err := proc.ProcessFile(file.Path, destDir); err != nil {
 						log.Error().Err(err).Str("file", file.Path).Msg("Failed to process file")
