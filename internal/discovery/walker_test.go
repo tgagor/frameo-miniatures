@@ -13,7 +13,7 @@ func TestIgnoreMatcher(t *testing.T) {
 	// Setup temporary directory
 	tmpDir, err := os.MkdirTemp("", "frameo-test")
 	require.NoError(t, err)
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	// Create .frameoignore
 	ignoreContent := `
@@ -73,7 +73,7 @@ func TestWalkFiles_UserScenario(t *testing.T) {
 
 	tmpDir, err := os.MkdirTemp("", "frameo-user-test")
 	require.NoError(t, err)
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	// Create .frameoignore
 	ignoreContent := `*/subdir/*`

@@ -88,13 +88,13 @@ func Run(cfg Config) error {
 						log.Error().Err(err).Str("file", file.Path).Msg("Failed to process file")
 					}
 				}
-				bar.Add(1)
+				_ = bar.Add(1)
 			}
 		}()
 	}
 
 	wg.Wait()
-	bar.Finish()
+	_ = bar.Finish()
 
 	if cfg.Prune {
 		// TODO: Implement Pruning

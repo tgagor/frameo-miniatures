@@ -57,7 +57,7 @@ func (p *Processor) ProcessFile(srcPath, destDir string) error {
 	var captureTime time.Time
 
 	// Reset file pointer for EXIF search
-	f.Seek(0, 0)
+	_, _ = f.Seek(0, 0)
 	rawExif, err := exif.SearchAndExtractExifWithReader(f)
 	if err == nil {
 		// Parse EXIF
@@ -125,17 +125,18 @@ func (p *Processor) ProcessFile(srcPath, destDir string) error {
 	encodedData := buf.Bytes()
 
 	// Reset file pointer for EXIF extraction
-	f.Seek(0, 0)
+	_, _ = f.Seek(0, 0)
 	rawExif, err = exif.SearchAndExtractExifWithReader(f)
 	if err == nil {
 		// We have EXIF data, embed it
-		if p.Format == "webp" {
+		switch p.Format {
+		case "webp":
 			// For WebP, use SetMetadata
 			encodedData, err = webp.SetMetadata(encodedData, rawExif, "EXIF")
 			if err != nil {
 				log.Warn().Err(err).Str("src", srcPath).Msg("Failed to embed EXIF in WebP")
 			}
-		} else if p.Format == "jpg" || p.Format == "jpeg" {
+		case "jpg", "jpeg":
 			// For JPEG, use go-jpeg-image-structure
 			encodedData, err = p.embedExifInJPEG(encodedData, rawExif)
 			if err != nil {
@@ -158,7 +159,7 @@ func (p *Processor) ProcessFile(srcPath, destDir string) error {
 		// Fallback to source file mod time
 		info, err := os.Stat(srcPath)
 		if err == nil {
-			os.Chtimes(destPath, time.Now(), info.ModTime())
+			_ = os.Chtimes(destPath, time.Now(), info.ModTime())
 		}
 	}
 

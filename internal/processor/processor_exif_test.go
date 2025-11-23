@@ -23,7 +23,7 @@ func TestProcessor_ProcessFile_PreservesEXIF(t *testing.T) {
 	// Setup temp dir
 	tmpDir, err := os.MkdirTemp("", "frameo-exif-test")
 	require.NoError(t, err)
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	srcDir := filepath.Join(tmpDir, "src")
 	destDir := filepath.Join(tmpDir, "dest")
@@ -51,7 +51,7 @@ func TestProcessor_ProcessFile_PreservesEXIF(t *testing.T) {
 	// Verify EXIF data is preserved
 	destFile, err := os.Open(destPath)
 	require.NoError(t, err)
-	defer destFile.Close()
+	defer func() { _ = destFile.Close() }()
 
 	// Read WebP and check for EXIF
 	rawExif, err := exif.SearchAndExtractExifWithReader(destFile)
@@ -97,8 +97,8 @@ func TestProcessor_ProcessFile_NoEXIF(t *testing.T) {
 	srcPath := filepath.Join(srcDir, "test_no_exif.jpg")
 	f, err := os.Create(srcPath)
 	require.NoError(t, err)
-	jpeg.Encode(f, img, nil)
-	f.Close()
+	_ = jpeg.Encode(f, img, nil)
+	_ = f.Close()
 
 	// Get source file mod time
 	srcInfo, err := os.Stat(srcPath)
@@ -162,7 +162,7 @@ func TestProcessor_ProcessFile_JPEG_PreservesEXIF(t *testing.T) {
 	// Verify EXIF data is preserved in JPEG
 	destFile, err := os.Open(destPath)
 	require.NoError(t, err)
-	defer destFile.Close()
+	defer func() { _ = destFile.Close() }()
 
 	// Read JPEG and check for EXIF
 	rawExif, err := exif.SearchAndExtractExifWithReader(destFile)
