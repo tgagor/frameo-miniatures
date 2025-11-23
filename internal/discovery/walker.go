@@ -31,25 +31,31 @@ func WalkFiles(root string, files chan<- File, matcher *IgnoreMatcher) {
 			return nil
 		}
 
-		// Check ignore rules
-		// Check both relative path (standard) and full path (user intuition)
-		if matcher.Matches(relPath, d.IsDir()) || matcher.Matches(path, d.IsDir()) {
-			log.Info().Str("path", path).Msg("Skipping ignored file")
-			if d.IsDir() {
+		// Skip directories early (but still check ignore rules for them)
+		if d.IsDir() {
+			// Check ignore rules for directories
+			if matcher.Matches(relPath, true) || matcher.Matches(path, true) {
+				log.Info().Str("path", path).Msg("Skipping ignored directory")
 				return filepath.SkipDir
 			}
 			return nil
 		}
 
-		if d.IsDir() {
+		// For files: check extension first (fast path)
+		if !isValidExtension(path) {
+			return nil // Silently skip non-image files
+		}
+
+		// Now check ignore rules (only for valid image files)
+		if matcher.Matches(relPath, false) || matcher.Matches(path, false) {
+			log.Info().Str("path", path).Msg("Skipping ignored file")
 			return nil
 		}
 
-		if isValidExtension(path) {
-			files <- File{
-				Path:         path,
-				RelativePath: relPath,
-			}
+		// Valid image file that's not ignored
+		files <- File{
+			Path:         path,
+			RelativePath: relPath,
 		}
 
 		return nil
