@@ -18,23 +18,26 @@ import (
 	exifcommon "github.com/dsoprea/go-exif/v3/common"
 	jpegstructure "github.com/dsoprea/go-jpeg-image-structure/v2"
 	"github.com/rs/zerolog/log"
+	"github.com/tgagor/frameo-miniatures/internal/fileutil"
 )
 
 // Processor handles image processing
 type Processor struct {
-	Width   int
-	Height  int
-	Quality int
-	Format  string // "webp" or "jpg"
+	Width        int
+	Height       int
+	Quality      int
+	Format       string // "webp" or "jpg"
+	SkipExisting bool
 }
 
 // NewProcessor creates a new processor
-func NewProcessor(width, height, quality int, format string) *Processor {
+func NewProcessor(width, height, quality int, format string, skipExisting bool) *Processor {
 	return &Processor{
-		Width:   width,
-		Height:  height,
-		Quality: quality,
-		Format:  format,
+		Width:        width,
+		Height:       height,
+		Quality:      quality,
+		Format:       format,
+		SkipExisting: skipExisting,
 	}
 }
 
@@ -57,7 +60,7 @@ func (p *Processor) ProcessFile(srcPath, destDir string) error {
 	var captureTime time.Time
 
 	// Reset file pointer for EXIF search
-	_, _ = f.Seek(0, 0)
+	f.Seek(0, 0)
 	rawExif, err := exif.SearchAndExtractExifWithReader(f)
 	if err == nil {
 		// Parse EXIF
@@ -92,12 +95,47 @@ func (p *Processor) ProcessFile(srcPath, destDir string) error {
 	img = p.fixOrientation(img, srcPath)
 
 	// 4. Resize
+	// Determine target dimensions based on orientation
+	// We want to optimize for the frame's resolution regardless of its current orientation.
+	// So we define the frame's "Long" and "Short" dimensions.
+	frameLong := p.Width
+	if p.Height > frameLong {
+		frameLong = p.Height
+	}
+	frameShort := p.Width
+	if p.Height < frameShort {
+		frameShort = p.Height
+	}
+
+	// Check image orientation
+	bounds := img.Bounds()
+	imgW, imgH := bounds.Dx(), bounds.Dy()
+
+	var targetW, targetH int
+	if imgW >= imgH {
+		// Landscape image: Fit into Frame Landscape (Long x Short)
+		targetW = frameLong
+		targetH = frameShort
+	} else {
+		// Portrait image: Fit into Frame Portrait (Short x Long)
+		targetW = frameShort
+		targetH = frameLong
+	}
+
 	// "Fit Within" - imaging.Fit keeps aspect ratio
-	img = imaging.Fit(img, p.Width, p.Height, imaging.CatmullRom)
+	img = imaging.Fit(img, targetW, targetH, imaging.CatmullRom)
 
 	// 5. Normalize Filename
 	destFilename := p.normalizeFilename(filepath.Base(srcPath))
 	destPath := filepath.Join(destDir, destFilename)
+
+	// Check if file exists if SkipExisting is enabled
+	if p.SkipExisting {
+		if _, err := os.Stat(destPath); err == nil {
+			// File exists, skip
+			return nil
+		}
+	}
 
 	// Ensure dest dir exists
 	if err := os.MkdirAll(destDir, 0755); err != nil {
@@ -125,22 +163,31 @@ func (p *Processor) ProcessFile(srcPath, destDir string) error {
 	encodedData := buf.Bytes()
 
 	// Reset file pointer for EXIF extraction
-	_, _ = f.Seek(0, 0)
+	f.Seek(0, 0)
 	rawExif, err = exif.SearchAndExtractExifWithReader(f)
 	if err == nil {
-		// We have EXIF data, embed it
-		switch p.Format {
-		case "webp":
-			// For WebP, use SetMetadata
-			encodedData, err = webp.SetMetadata(encodedData, rawExif, "EXIF")
-			if err != nil {
-				log.Warn().Err(err).Str("src", srcPath).Msg("Failed to embed EXIF in WebP")
-			}
-		case "jpg", "jpeg":
-			// For JPEG, use go-jpeg-image-structure
-			encodedData, err = p.embedExifInJPEG(encodedData, rawExif)
-			if err != nil {
-				log.Warn().Err(err).Str("src", srcPath).Msg("Failed to embed EXIF in JPEG")
+		// Rebuild EXIF with only allowed tags
+		rebuiltExif, err := p.rebuildExif(rawExif)
+		if err != nil {
+			log.Warn().Err(err).Str("src", srcPath).Msg("Failed to rebuild EXIF, skipping metadata")
+			// If rebuild fails, we skip EXIF entirely to avoid embedding broken/large data
+		} else {
+			rawExif = rebuiltExif
+
+			// We have EXIF data, embed it
+			switch p.Format {
+			case "webp":
+				// For WebP, use SetMetadata
+				encodedData, err = webp.SetMetadata(encodedData, rawExif, "EXIF")
+				if err != nil {
+					log.Warn().Err(err).Str("src", srcPath).Msg("Failed to embed EXIF in WebP")
+				}
+			case "jpg", "jpeg":
+				// For JPEG, use go-jpeg-image-structure
+				encodedData, err = p.embedExifInJPEG(encodedData, rawExif)
+				if err != nil {
+					log.Warn().Err(err).Str("src", srcPath).Msg("Failed to embed EXIF in JPEG")
+				}
 			}
 		}
 	}
@@ -159,7 +206,7 @@ func (p *Processor) ProcessFile(srcPath, destDir string) error {
 		// Fallback to source file mod time
 		info, err := os.Stat(srcPath)
 		if err == nil {
-			_ = os.Chtimes(destPath, time.Now(), info.ModTime())
+			os.Chtimes(destPath, time.Now(), info.ModTime())
 		}
 	}
 
@@ -225,21 +272,7 @@ func (p *Processor) fixOrientation(img image.Image, path string) image.Image {
 }
 
 func (p *Processor) normalizeFilename(name string) string {
-	// Remove extension
-	ext := filepath.Ext(name)
-	nameWithoutExt := strings.TrimSuffix(name, ext)
-
-	// Replace invalid chars
-	invalid := []string{"\\", "/", ":", ";", "*", "?", "\"", "<", ">", "|"}
-	for _, char := range invalid {
-		nameWithoutExt = strings.ReplaceAll(nameWithoutExt, char, "_")
-	}
-
-	// Add extension based on format
-	if p.Format == "jpg" || p.Format == "jpeg" {
-		return nameWithoutExt + ".jpg"
-	}
-	return nameWithoutExt + ".webp"
+	return fileutil.GetOutputFilename(name, p.Format)
 }
 
 // embedExifInJPEG embeds EXIF data into JPEG bytes
@@ -267,7 +300,10 @@ func (p *Processor) embedExifInJPEG(jpegData, exifData []byte) ([]byte, error) {
 	}
 
 	// Create IfdBuilder from the root IFD
-	ib := exif.NewIfdBuilderFromExistingChain(index.RootIfd)
+	ib, err := safeNewIfdBuilderFromExistingChain(index.RootIfd)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create IFD builder: %w", err)
+	}
 
 	// Set the EXIF data
 	err = sl.SetExif(ib)
@@ -283,4 +319,91 @@ func (p *Processor) embedExifInJPEG(jpegData, exifData []byte) ([]byte, error) {
 	}
 
 	return buf.Bytes(), nil
+}
+
+// rebuildExif creates a new EXIF block with only allowed tags
+func (p *Processor) rebuildExif(rawExif []byte) ([]byte, error) {
+	// Parse all tags
+	entries, _, err := exif.GetFlatExifData(rawExif, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create new builder
+	im, err := exifcommon.NewIfdMappingWithStandard()
+	if err != nil {
+		return nil, err
+	}
+	ti := exif.NewTagIndex()
+
+	// Default to BigEndian as it's common for EXIF
+	ib := exif.NewIfdBuilder(im, ti, exifcommon.IfdStandardIfdIdentity, exifcommon.EncodeDefaultByteOrder)
+
+	// Allowed tags
+	allowedTags := map[string]bool{
+		"DateTime":            true,
+		"DateTimeOriginal":    true,
+		"CreateDate":          true,
+		"OffsetTime":          true,
+		"OffsetTimeOriginal":  true,
+		"OffsetTimeDigitized": true,
+		"Make":                true,
+		"Model":               true,
+		"GPSLatitude":         true,
+		"GPSLongitude":        true,
+		"GPSAltitude":         true,
+		"GPSDateStamp":        true,
+		"GPSTimeStamp":        true,
+		"GPSProcessingMethod": true,
+		"GPSAreaInformation":  true,
+	}
+
+	for _, tag := range entries {
+		// Skip if not allowed
+		if !allowedTags[tag.TagName] {
+			continue
+		}
+
+		// Skip Orientation explicitly as we rotate the image
+		if tag.TagName == "Orientation" {
+			continue
+		}
+
+		// Add to builder
+		// We use AddStandardWithName which handles looking up the tag ID
+		// tag.IfdPath gives us the hierarchy (e.g. "IFD0", "IFD/Exif", "IFD/GPS")
+		// AddStandardWithName(name string, value interface{}) error -> It seems it doesn't take IfdPath?
+		// Wait, if I use the root builder `ib`, how does it know where to put it?
+		// Ah, `AddStandardWithName` is a method on `IfdBuilder`.
+		// If the tag belongs to a child IFD (like Exif or GPS), we need to get/create that child builder first.
+
+		targetIb, err := exif.GetOrCreateIbFromRootIb(ib, tag.IfdPath)
+		if err != nil {
+			log.Debug().Err(err).Str("path", tag.IfdPath).Msg("Failed to get/create IFD builder")
+			continue
+		}
+
+		err = targetIb.AddStandardWithName(tag.TagName, tag.Value)
+		if err != nil {
+			// Log but continue? Or fail?
+			// Some tags might fail to add if value type doesn't match what standard expects.
+			// Given we want to be robust, we should probably ignore errors for individual tags.
+			log.Debug().Err(err).Str("tag", tag.TagName).Msg("Failed to add tag to new EXIF")
+		}
+	}
+
+	// Encode
+	ibe := exif.NewIfdByteEncoder()
+	return ibe.EncodeToExif(ib)
+}
+
+// safeNewIfdBuilderFromExistingChain wraps exif.NewIfdBuilderFromExistingChain to recover from panics
+func safeNewIfdBuilderFromExistingChain(rootIfd *exif.Ifd) (ib *exif.IfdBuilder, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("panic in NewIfdBuilderFromExistingChain: %v", r)
+		}
+	}()
+	ib = exif.NewIfdBuilderFromExistingChain(rootIfd)
+	return ib, nil
 }

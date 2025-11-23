@@ -23,7 +23,7 @@ func TestProcessor_ProcessFile_PreservesEXIF(t *testing.T) {
 	// Setup temp dir
 	tmpDir, err := os.MkdirTemp("", "frameo-exif-test")
 	require.NoError(t, err)
-	defer func() { _ = os.RemoveAll(tmpDir) }()
+	defer os.RemoveAll(tmpDir)
 
 	srcDir := filepath.Join(tmpDir, "src")
 	destDir := filepath.Join(tmpDir, "dest")
@@ -38,7 +38,7 @@ func TestProcessor_ProcessFile_PreservesEXIF(t *testing.T) {
 	require.NoError(t, err)
 
 	// Initialize Processor
-	proc := NewProcessor(800, 600, 80, "webp")
+	proc := NewProcessor(800, 600, 80, "webp", false)
 
 	// Process
 	err = proc.ProcessFile(srcPath, destDir)
@@ -51,7 +51,7 @@ func TestProcessor_ProcessFile_PreservesEXIF(t *testing.T) {
 	// Verify EXIF data is preserved
 	destFile, err := os.Open(destPath)
 	require.NoError(t, err)
-	defer func() { _ = destFile.Close() }()
+	defer destFile.Close()
 
 	// Read WebP and check for EXIF
 	rawExif, err := exif.SearchAndExtractExifWithReader(destFile)
@@ -97,8 +97,8 @@ func TestProcessor_ProcessFile_NoEXIF(t *testing.T) {
 	srcPath := filepath.Join(srcDir, "test_no_exif.jpg")
 	f, err := os.Create(srcPath)
 	require.NoError(t, err)
-	_ = jpeg.Encode(f, img, nil)
-	_ = f.Close()
+	jpeg.Encode(f, img, nil)
+	f.Close()
 
 	// Get source file mod time
 	srcInfo, err := os.Stat(srcPath)
@@ -106,7 +106,7 @@ func TestProcessor_ProcessFile_NoEXIF(t *testing.T) {
 	srcModTime := srcInfo.ModTime()
 
 	// Initialize Processor
-	proc := NewProcessor(400, 300, 80, "webp")
+	proc := NewProcessor(400, 300, 80, "webp", false)
 
 	// Process
 	err = proc.ProcessFile(srcPath, destDir)
@@ -149,7 +149,7 @@ func TestProcessor_ProcessFile_JPEG_PreservesEXIF(t *testing.T) {
 	require.NoError(t, err)
 
 	// Initialize Processor with JPEG format
-	proc := NewProcessor(800, 600, 80, "jpg")
+	proc := NewProcessor(800, 600, 80, "jpg", false)
 
 	// Process
 	err = proc.ProcessFile(srcPath, destDir)
@@ -162,7 +162,7 @@ func TestProcessor_ProcessFile_JPEG_PreservesEXIF(t *testing.T) {
 	// Verify EXIF data is preserved in JPEG
 	destFile, err := os.Open(destPath)
 	require.NoError(t, err)
-	defer func() { _ = destFile.Close() }()
+	defer destFile.Close()
 
 	// Read JPEG and check for EXIF
 	rawExif, err := exif.SearchAndExtractExifWithReader(destFile)

@@ -40,7 +40,7 @@ func TestProcessor_ProcessFile_JPEG_Output(t *testing.T) {
 	require.NoError(t, err)
 
 	// Initialize Processor with JPEG format
-	proc := NewProcessor(800, 600, 85, "jpg")
+	proc := NewProcessor(800, 600, 85, "jpg", false)
 
 	// Process
 	err = proc.ProcessFile(srcPath, destDir)
@@ -83,7 +83,7 @@ func TestProcessor_ProcessFile_WebP_Output(t *testing.T) {
 	f.Close()
 
 	// Initialize Processor with WebP format
-	proc := NewProcessor(800, 600, 80, "webp")
+	proc := NewProcessor(800, 600, 80, "webp", false)
 
 	// Process
 	err = proc.ProcessFile(srcPath, destDir)

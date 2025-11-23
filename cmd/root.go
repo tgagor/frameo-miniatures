@@ -12,15 +12,16 @@ import (
 )
 
 var (
-	inputDir   string
-	outputDir  string
-	resolution string
-	format     string
-	quality    int
-	workers    int
-	prune      bool
-	dryRun     bool
-	ignoreFile string
+	inputDir     string
+	outputDir    string
+	resolution   string
+	format       string
+	quality      int
+	workers      int
+	prune        bool
+	dryRun       bool
+	ignoreFile   string
+	skipExisting bool
 )
 
 var rootCmd = &cobra.Command{
@@ -46,15 +47,16 @@ WebP conversion, and metadata copying.`,
 			Msg("Starting Frameo Miniatures")
 
 		cfg := app.Config{
-			InputDir:   inputDir,
-			OutputDir:  outputDir,
-			Resolution: resolution,
-			Format:     format,
-			Quality:    quality,
-			Workers:    workers,
-			Prune:      prune,
-			DryRun:     dryRun,
-			IgnoreFile: ignoreFile,
+			InputDir:     inputDir,
+			OutputDir:    outputDir,
+			Resolution:   resolution,
+			Format:       format,
+			Quality:      quality,
+			Workers:      workers,
+			Prune:        prune,
+			DryRun:       dryRun,
+			IgnoreFile:   ignoreFile,
+			SkipExisting: skipExisting,
 		}
 
 		if err := app.Run(cfg); err != nil {
@@ -77,9 +79,10 @@ func init() {
 	rootCmd.Flags().StringVarP(&outputDir, "output", "o", "./output", "Destination directory path")
 	rootCmd.Flags().StringVarP(&resolution, "resolution", "r", "1280x800", "Target frame resolution (bounding box)")
 	rootCmd.Flags().StringVarP(&format, "format", "f", "webp", "Output format (webp, jpg)")
-	rootCmd.Flags().IntVarP(&quality, "quality", "q", 80, "Compression quality (0-100)")
+	rootCmd.Flags().IntVarP(&quality, "quality", "q", 75, "Compression quality (0-100)")
 	rootCmd.Flags().IntVarP(&workers, "workers", "j", 0, "Number of concurrent workers (0 = auto)")
-	rootCmd.Flags().BoolVar(&prune, "prune", false, "Delete files in output that are not in input")
+	rootCmd.Flags().BoolVar(&prune, "prune", false, "Remove orphaned files from output (no source or ignored)")
 	rootCmd.Flags().BoolVar(&dryRun, "dry-run", false, "Simulate without writing files")
 	rootCmd.Flags().StringVar(&ignoreFile, "ignore-file", "", "Path to .frameoignore file")
+	rootCmd.Flags().BoolVar(&skipExisting, "skip-existing", false, "Skip processing if output file already exists")
 }

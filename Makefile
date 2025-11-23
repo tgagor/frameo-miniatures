@@ -43,3 +43,4 @@ lint: install-linters
 clean:
 	@rm -rfv bin
 	@rm -fv frameo-miniatures
+	@rm -rfv test-*

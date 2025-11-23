@@ -22,6 +22,7 @@ Frameo Miniatures resizes, compresses, and organizes your photos to fit perfectl
 - ✅ Progress bar with ETA
 - ✅ Dry-run mode for testing
 - ✅ Pruning of outdated files
+- ✅ Skip existing files for fast incremental updates
 - ✅ Multi-core processing
 
 ## Installation
@@ -72,7 +73,8 @@ frameo-miniatures [flags]
 | `--quality` | `-q` | `80` | Compression quality (0-100) |
 | `--workers` | `-j` | `0` | Number of concurrent workers (0 = auto) |
 | `--ignore-file` | | | Path to custom `.frameoignore` file |
-| `--prune` | | `false` | Delete files in output not in input |
+| `--prune` | | `false` | Remove orphaned files from output (no source or ignored) |
+| `--skip-existing` | | `false` | Skip processing if output file already exists |
 | `--dry-run` | | `false` | Simulate without writing files |
 | `--version` | | | Show version information |
 
@@ -93,15 +95,27 @@ frameo-miniatures -i ./photos -o ./miniatures -f jpg -q 85
 frameo-miniatures -i ./photos -o ./miniatures --dry-run
 ```
 
-**Prune old files from output:**
+**Prune orphaned files from output:**
 ```bash
 frameo-miniatures -i ./photos -o ./miniatures --prune
 ```
+This removes miniatures that no longer have corresponding source files or match ignore patterns.
 
 **Use custom ignore file:**
 ```bash
 frameo-miniatures -i ./photos -o ./miniatures --ignore-file ~/my-ignore-rules
 ```
+
+**Skip existing files (incremental update):**
+```bash
+frameo-miniatures -i ./photos -o ./miniatures --skip-existing
+```
+
+**Incremental update with cleanup:**
+```bash
+frameo-miniatures -i ./photos -o ./miniatures --skip-existing --prune
+```
+This efficiently updates only new/changed files and removes orphaned miniatures.
 
 ## Ignore Patterns
 
@@ -152,7 +166,9 @@ drafts/
    - Normalizes filename for FAT32 compatibility
    - Encodes to WebP (or JPEG)
    - Preserves capture date/time
-4. **Pruning** (optional): Removes files in output that don't exist in input
+4. **Pruning** (optional): Removes orphaned miniatures from output directory
+   - Deletes files with no corresponding source
+   - Removes files matching ignore patterns
 
 ## Performance
 

@@ -14,18 +14,20 @@ import (
 	"github.com/schollz/progressbar/v3"
 	"github.com/tgagor/frameo-miniatures/internal/discovery"
 	"github.com/tgagor/frameo-miniatures/internal/processor"
+	"github.com/tgagor/frameo-miniatures/internal/pruner"
 )
 
 type Config struct {
-	InputDir   string
-	OutputDir  string
-	Resolution string
-	Format     string
-	Quality    int
-	Workers    int
-	Prune      bool
-	DryRun     bool
-	IgnoreFile string
+	InputDir     string
+	OutputDir    string
+	Resolution   string
+	Format       string
+	Quality      int
+	Workers      int
+	Prune        bool
+	DryRun       bool
+	IgnoreFile   string
+	SkipExisting bool
 }
 
 func Run(cfg Config) error {
@@ -41,7 +43,7 @@ func Run(cfg Config) error {
 	}
 
 	// Setup processor
-	proc := processor.NewProcessor(width, height, cfg.Quality, cfg.Format)
+	proc := processor.NewProcessor(width, height, cfg.Quality, cfg.Format, cfg.SkipExisting)
 
 	// Setup ignore matcher
 	matcher, err := discovery.NewIgnoreMatcher(cfg.IgnoreFile, cfg.InputDir)
@@ -88,17 +90,23 @@ func Run(cfg Config) error {
 						log.Error().Err(err).Str("file", file.Path).Msg("Failed to process file")
 					}
 				}
-				_ = bar.Add(1)
+				bar.Add(1)
 			}
 		}()
 	}
 
 	wg.Wait()
-	_ = bar.Finish()
+	bar.Finish()
 
 	if cfg.Prune {
-		// TODO: Implement Pruning
-		log.Info().Msg("Pruning is not yet implemented")
+		log.Info().Msg("Starting pruning phase...")
+		pruner := pruner.NewPruner(cfg.InputDir, cfg.OutputDir, cfg.Format, matcher, cfg.DryRun)
+		removedCount, err := pruner.Prune()
+		if err != nil {
+			log.Error().Err(err).Msg("Pruning failed")
+		} else {
+			log.Info().Int("removed", removedCount).Msg("Pruning completed")
+		}
 	}
 
 	return nil

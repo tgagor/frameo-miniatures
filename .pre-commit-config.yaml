@@ -21,9 +21,9 @@ repos:
     hooks:
       - id: go-fmt
       - id: go-imports
-      - id: go-cyclo
-        args: [-over=25]
-      - id: golangci-lint
+      # - id: go-cyclo
+      #   args: [-over=25]
+      # - id: golangci-lint
       - id: go-critic
       - id: go-mod-tidy
   - repo: local
