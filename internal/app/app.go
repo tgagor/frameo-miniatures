@@ -41,7 +41,7 @@ func Run(cfg Config) error {
 	}
 
 	// Setup processor
-	proc := processor.NewProcessor(width, height, cfg.Quality)
+	proc := processor.NewProcessor(width, height, cfg.Quality, cfg.Format)
 
 	// Setup ignore matcher
 	matcher, err := discovery.NewIgnoreMatcher(cfg.IgnoreFile, cfg.InputDir)

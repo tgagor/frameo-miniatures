@@ -3,6 +3,7 @@ package processor
 import (
 	"fmt"
 	"image"
+	"image/jpeg"
 	_ "image/png"
 	"io"
 	"os"
@@ -22,14 +23,16 @@ type Processor struct {
 	Width   int
 	Height  int
 	Quality int
+	Format  string // "webp" or "jpg"
 }
 
 // NewProcessor creates a new processor
-func NewProcessor(width, height, quality int) *Processor {
+func NewProcessor(width, height, quality int, format string) *Processor {
 	return &Processor{
 		Width:   width,
 		Height:  height,
 		Quality: quality,
+		Format:  format,
 	}
 }
 
@@ -99,18 +102,39 @@ func (p *Processor) ProcessFile(srcPath, destDir string) error {
 		return fmt.Errorf("failed to create dest dir: %w", err)
 	}
 
-	// 6. Encode (WebP)
+	// 6. Encode
 	out, err := os.Create(destPath)
 	if err != nil {
 		return fmt.Errorf("failed to create output file: %w", err)
 	}
-	defer out.Close()
 
-	if err := webp.Encode(out, img, &webp.Options{Quality: float32(p.Quality)}); err != nil {
-		return fmt.Errorf("failed to encode webp: %w", err)
+	// Encode based on format
+	if p.Format == "jpg" || p.Format == "jpeg" {
+		err = jpeg.Encode(out, img, &jpeg.Options{Quality: p.Quality})
+		out.Close()
+		if err != nil {
+			return fmt.Errorf("failed to encode jpeg: %w", err)
+		}
+	} else {
+		// Default to WebP
+		err = webp.Encode(out, img, &webp.Options{Quality: float32(p.Quality)})
+		out.Close()
+		if err != nil {
+			return fmt.Errorf("failed to encode webp: %w", err)
+		}
 	}
 
-	// 7. Preserve Metadata (Time)
+	// 7. Preserve Metadata (EXIF and Time)
+	// Copy EXIF data from source to destination (only for WebP, JPEG preserves it differently)
+	if p.Format == "webp" {
+		if err := p.copyExif(srcPath, destPath); err != nil {
+			log.Warn().Err(err).Str("src", srcPath).Str("dest", destPath).Msg("Failed to copy EXIF data")
+		}
+	}
+	// Note: For JPEG, we'd need a different approach to preserve EXIF
+	// The standard library's jpeg.Encode doesn't preserve EXIF, so we'd need additional work
+
+	// Also set file modification time
 	if !captureTime.IsZero() {
 		if err := os.Chtimes(destPath, time.Now(), captureTime); err != nil {
 			log.Warn().Err(err).Str("path", destPath).Msg("Failed to set file time")
@@ -195,5 +219,45 @@ func (p *Processor) normalizeFilename(name string) string {
 		nameWithoutExt = strings.ReplaceAll(nameWithoutExt, char, "_")
 	}
 
+	// Add extension based on format
+	if p.Format == "jpg" || p.Format == "jpeg" {
+		return nameWithoutExt + ".jpg"
+	}
 	return nameWithoutExt + ".webp"
+}
+
+// copyExif copies EXIF data from source to destination using webp.SetMetadata
+func (p *Processor) copyExif(srcPath, destPath string) error {
+	// Read source EXIF data
+	srcFile, err := os.Open(srcPath)
+	if err != nil {
+		return fmt.Errorf("failed to open source: %w", err)
+	}
+	defer srcFile.Close()
+
+	// Extract EXIF data from source
+	rawExif, err := exif.SearchAndExtractExifWithReader(srcFile)
+	if err != nil {
+		// No EXIF data in source, skip
+		return nil
+	}
+
+	// Read the WebP file
+	webpData, err := os.ReadFile(destPath)
+	if err != nil {
+		return fmt.Errorf("failed to read webp: %w", err)
+	}
+
+	// Set EXIF metadata in WebP
+	newData, err := webp.SetMetadata(webpData, rawExif, "EXIF")
+	if err != nil {
+		return fmt.Errorf("failed to set metadata: %w", err)
+	}
+
+	// Write back the WebP with EXIF
+	if err := os.WriteFile(destPath, newData, 0644); err != nil {
+		return fmt.Errorf("failed to write webp: %w", err)
+	}
+
+	return nil
 }

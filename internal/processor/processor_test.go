@@ -44,7 +44,7 @@ func TestProcessor_ProcessFile(t *testing.T) {
 	// Aspect ratio of source is 2:1.
 	// Target 1000x500 has aspect ratio 2:1.
 	// Should fit exactly.
-	proc := NewProcessor(1000, 500, 80)
+	proc := NewProcessor(1000, 500, 80, "webp")
 
 	// Process
 	err = proc.ProcessFile(srcPath, destDir)
@@ -88,7 +88,7 @@ func TestProcessor_ProcessFile_AspectPreservation(t *testing.T) {
 	// Target: 1280x800
 	// Should be resized to fit within 1280x800.
 	// Max height is 800. So it should be 800x800.
-	proc := NewProcessor(1280, 800, 80)
+	proc := NewProcessor(1280, 800, 80, "webp")
 
 	err = proc.ProcessFile(srcPath, destDir)
 	require.NoError(t, err)
