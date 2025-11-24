@@ -183,32 +183,6 @@ On a typical system, you can expect:
 - Immediate start (streaming discovery)
 - Linear scaling with CPU cores
 
-## Development
-
-### Build
-
-```bash
-make build
-```
-
-### Test
-
-```bash
-make test
-```
-
-### Run
-
-```bash
-make run
-```
-
-### Clean
-
-```bash
-make clean
-```
-
 ## Technical Details
 
 ### Supported Formats
