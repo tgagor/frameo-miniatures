@@ -190,6 +190,7 @@ jobs:
       - name: Setup binary on Linux/MacOS
         if: matrix.os != 'windows-latest'
         run: |
+          ls -la bin/
           chmod +x bin/${{ matrix.binary }}
           ln -sf ${{ matrix.binary }} bin/frameo-miniatures
 
