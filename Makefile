@@ -1,14 +1,24 @@
 VERSION ?= $(shell git describe --tags --always)
 GOBIN ?= $(shell go env GOPATH)/bin
 
+# Integration test configuration
+BINARY ?= bin/frameo-miniatures
+TEST_INPUT := example
+TEST_OUTPUT_BASE := test-output
+
+# Test targets
+.PHONY: run build install \
+		integration-test test-version test-basic-webp test-jpeg-output test-custom-resolution \
+		test-dry-run test-skip-existing test-prune test-skip-existing-prune integration-test-clean test-unit
+
 run:
 	go run \
 		-ldflags="-X main.BuildVersion=$(VERSION)" \
 		./cmd
 
-bin/frameo-miniatures: build
+build: bin/frameo-miniatures
 
-build:
+bin/frameo-miniatures:
 	go build \
 		-ldflags="-X main.BuildVersion=$(VERSION)" \
 		-o bin/frameo-miniatures
@@ -41,22 +51,11 @@ clean:
 	@rm -fv frameo-miniatures
 	@rm -rfv test-*
 
-
-
-# Integration test configuration
-BINARY ?= bin/frameo-miniatures
-TEST_INPUT := example
-TEST_OUTPUT_BASE := test-output
-
-# Test targets
-.PHONY: integration-test test-version test-basic-webp test-jpeg-output test-custom-resolution \
-        test-dry-run test-skip-existing test-prune test-skip-existing-prune integration-test-clean test-unit
-
 test: test-unit integration-test
 	@echo ""
 	@echo "✓ All tests passed!"
 
-test-unit: bin/frameo-miniatures
+test-unit:
 	go test -v ./...
 
 integration-test: bin/frameo-miniatures test-version test-basic-webp test-jpeg-output \
