@@ -33,3 +33,6 @@ __debug_*
 .env
 .env.local
 *.env.*
+
+# AI/Copilot files
+.gemini/
