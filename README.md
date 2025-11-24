@@ -231,12 +231,4 @@ HEIC decoding requires CGO and libheif. If you encounter issues:
 
 ## License
 
-[Add your license here]
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-## Author
-
-[Add your name/info here]
+[GPLv3](./LICENSE)
