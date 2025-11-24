@@ -68,7 +68,8 @@ jobs:
         set -x
         go version
 
-        export CGO_ENABLED=0
+        # FIXME: I have I problem with it
+        # export CGO_ENABLED=0
 
         OUTPUT_NAME=frameo-miniatures-${{ matrix.os }}-${{ matrix.arch }}
         if [ "${{ matrix.os }}" == "windows" ]; then
