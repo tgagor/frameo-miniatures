@@ -200,7 +200,9 @@ jobs:
           cp bin/${{ matrix.binary }} bin/frameo-miniatures.exe
 
       - name: Run integration tests
-        run: make integration-test
+        run: |
+          ls -laR .
+          make integration-test
 
 
 
