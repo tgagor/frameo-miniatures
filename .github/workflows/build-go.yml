@@ -201,7 +201,6 @@ jobs:
 
       - name: Run integration tests
         run: |
-          ls -laR .
           make integration-test
 
 
