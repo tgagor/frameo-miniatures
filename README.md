@@ -47,14 +47,14 @@ go install github.com/tgagor/frameo-miniatures@latest
 Basic usage:
 
 ```bash
-frameo-miniatures -i ./photos -o ./miniatures
+frameo-miniatures -i ~/Photos -o miniatures
 ```
 
 This will:
-1. Scan `./photos` for images
+1. Scan `~/Photos` for images
 2. Resize them to fit 1280x800 (default)
 3. Convert to WebP format
-4. Save to `./miniatures` preserving directory structure
+4. Save to `miniatures` preserving directory structure
 
 ## Usage
 
@@ -82,38 +82,38 @@ frameo-miniatures [flags]
 
 **Process photos for a 1920x1080 frame:**
 ```bash
-frameo-miniatures -i ~/Photos -o ~/FramePhotos -r 1920x1080
+frameo-miniatures -i ~/Photos -o miniatures -r 1920x1080
 ```
 
 **Use JPEG instead of WebP:**
 ```bash
-frameo-miniatures -i ./photos -o ./miniatures -f jpg -q 85
+frameo-miniatures -i ~/Photos -o miniatures -f jpg -q 85
 ```
 
 **Dry run to see what would happen:**
 ```bash
-frameo-miniatures -i ./photos -o ./miniatures --dry-run
+frameo-miniatures -i ~/Photos -o miniatures --dry-run
 ```
 
 **Prune orphaned files from output:**
 ```bash
-frameo-miniatures -i ./photos -o ./miniatures --prune
+frameo-miniatures -i ~/Photos -o miniatures --prune
 ```
 This removes miniatures that no longer have corresponding source files or match ignore patterns.
 
 **Use custom ignore file:**
 ```bash
-frameo-miniatures -i ./photos -o ./miniatures --ignore-file ~/my-ignore-rules
+frameo-miniatures -i ~/Photos -o miniatures --ignore-file .my-ignore-rules
 ```
 
 **Skip existing files (incremental update):**
 ```bash
-frameo-miniatures -i ./photos -o ./miniatures --skip-existing
+frameo-miniatures -i ~/Photos -o miniatures --skip-existing
 ```
 
 **Incremental update with cleanup:**
 ```bash
-frameo-miniatures -i ./photos -o ./miniatures --skip-existing --prune
+frameo-miniatures -i ~/Photos -o miniatures --skip-existing --prune
 ```
 This efficiently updates only new/changed files and removes orphaned miniatures.
 
@@ -134,8 +134,8 @@ The tool looks for `.frameoignore` in the following order (unless `--ignore-file
 
 ```
 # Ignore all files in specific directories
-*/2005.07/Ognisko u Gogusia/*
-2002.03/Studniówka z Beatą/*
+*/2005.07/One party/*
+2002.03/A trip/*
 
 # Ignore by pattern
 *.tmp
@@ -144,7 +144,7 @@ The tool looks for `.frameoignore` in the following order (unless `--ignore-file
 
 # Ignore specific directories
 temp/
-drafts/
+mobile/
 ```
 
 ### Pattern Syntax
