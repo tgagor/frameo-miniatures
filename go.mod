@@ -1,8 +1,6 @@
 module github.com/tgagor/frameo-miniatures
 
-go 1.25.0
-
-toolchain go1.25.5
+go 1.26
 
 require (
 	github.com/adrium/goheif v0.0.0-20230113233934-ca402e77a786
